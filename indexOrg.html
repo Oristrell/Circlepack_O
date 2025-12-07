@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Medical Service Workload Animation</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/save-svg-as-png"></script>
+	<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+			align-items: center;
+        }
+
+		#main-container {
+			display: flex;
+			flex-direction: column;
+			width: 100%;
+		}
+
+		#graph-title {
+			font-size: 22px;
+			font-weight: bold;
+			text-align: center;
+			margin-bottom: 5px; /* Add spacing below title */
+			width: 100%;
+		}
+
+		#content-container {
+			display: flex;
+			justify-content: space-between; /* Space between graph and table */
+			width: 100%; /* Adjust width as needed */
+			align-items: flex-start;
+		}
+
+        #graph-container {
+			flex: 1.3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+        }
+
+        svg {
+            display: block;
+            width: 100%; /* Makes sure SVG fills the container */
+            height: auto; /* Maintain aspect ratio */
+        }
+
+        #controls {
+			flex: 0.4;
+    		display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			gap:10px;
+			position: relative;
+			left: -40px;
+			top: 20px;
+        }
+
+        .node {
+            cursor: pointer;
+        }
+        
+        .node:hover {
+            opacity: 0.7;
+        }
+
+		.node circle {
+			stroke: black; /* Black border */
+			stroke-width: 1px; /* Thickness of the border */
+		}
+
+        .label {
+            font-size: 8px;
+            text-anchor: middle;
+            pointer-events: none;
+			font-weight: bold; /* Make the text bold */
+			fill: white;       /* Set the text color to white */
+        }
+
+		#transitionButton {
+			background-color: #6dbf64;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			padding: 10px 15px;
+			font-size: 12px;
+			cursor: pointer;
+			text-align: center;
+			transition: background-color 0.3s ease;
+			width: 70px;
+		}
+
+		#transitionButton:hover {
+			background-color: darkgreen;
+		}
+
+		/* Style for the Pause/Resume button */
+		#pauseButton {
+			background-color: #f0f0f0;
+			color: #333;
+			border: 1px solid #ccc;
+			border-radius: 5px;
+			padding: 10px 15px;
+			font-size: 12px;
+			cursor: pointer;
+			transition: background-color 0.3s ease;
+			width: 70px;
+		}
+
+		/* Style for the Save button */
+		#saveButton {
+			background-color: yellow;
+			color: #333;
+			border: 1px solid #ccc;
+			border-radius: 5px;
+			padding: 10px 15px;
+			font-size: 12px;
+			cursor: pointer;
+			transition: background-color 0.3s ease;
+			width: 70px;
+		}
+
+		#saveButton:hover {
+			background-color: #ffc107; /* Slightly darker yellow for hover */
+		}
+
+		#pauseButton:hover {
+			background-color: #e0e0e0;
+		}	
+		
+		.hidden {
+			visibility: hidden;
+		}
+
+        #table-container {
+			flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            box-sizing: border-box;
+			margin-left: -20px;
+        }
+
+        #node-table {
+            width: 100%;
+            font-size: 10px;
+            text-align: left;
+            border-collapse: collapse;
+        }
+
+        #node-table th, #node-table td {
+            padding: 8px;
+            border: 1px solid #ddd;
+        }
+
+        #node-table th {
+            background-color: #f4f4f4;
+        }
+
+        .title {
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        /* Tooltip styles */
+        .tooltip {
+            position: fixed;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 9999;
+			font-size: 10px; /* Change this value to adjust the tooltip text size */
+		}
+		
+		#legend-container {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			margin-top: 10px; /* Add some spacing */
+		}
+
+		#legendButton {
+			width: 110px;
+			height: 30px;
+		    margin-left: 40px;
+			border-radius: 5px;
+			border: 1px solid black;
+			background: linear-gradient(to right, 
+				#1f77b4 0%,    /* Min Càrrega - Dark Blue */
+				#00bfff 25%,   /* Low Càrrega - Cyan */
+				#ffff00 50%,   /* Medium Càrrega - Yellow */
+				#ff7f00 75%,   /* High Càrrega - Orange */
+				#800000 100%   /* Max Càrrega - Dark Red */
+			);
+			color: white;
+			font-size: 12px;
+			font-weight: bold;
+			cursor: pointer;
+			text-align: center;
+			transition: transform 0.2s ease;
+		}
+
+		#legend-labels {
+			display: flex;
+			justify-content: space-between;
+			width: 110px; /* Match the button width */
+			font-size: 10px;
+			margin-left: 40px;
+			color: black;
+			margin-top: 3px; /* Adjust spacing */
+		}
+
+		#legend-labels span {
+			text-align: center;
+			flex: 1; /* Ensures even spacing */
+		}
+    </style>
+</head>
+<body>
+    <div id="main-container">
+        <h2 id="graph-title">Grups de malalties (per òrgans)</h2>
+
+		<div id="content-container">
+			<div id="graph-container">
+				<svg></svg>
+			</div>
+			
+			<div id="controls">
+				<button class="button" id="transitionButton">Start</button>
+				<button class="button" id="pauseButton" style="background-color: #FF5733;">Pause</button>
+				<button class="button" id="saveButton">Save</button>
+				<div id="legend-container">
+					<button id="legendButton">Workload</button>
+					<div id="legend-labels">
+						<span>Min</span>
+						<span>0.8</span>
+						<span>1</span>
+						<span>1.2</span>
+						<span>Max</span>
+					</div>	
+				</div>
+			</div>
+
+		<!-- Right: Table -->
+			<div id="table-container">
+				<h2 id="table-title" class="title"></h2> <!-- Table title placeholder -->
+				<table id="node-table" border="1">
+					<thead>
+						<tr>
+							<th>Grup</th>
+							<th>Descrip</th>
+							<th>Casos</th>
+							<th>Comorb</th>
+							<th>Càrrega</th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+			</div>
+
+			<!-- Tooltip element -->
+			<div id="tooltip" class="tooltip"></div>
+		</div>
+
+	</div>
+	<!-- Tooltip element -->
+	<div id="tooltip" class="tooltip"></diat av>
+
+    <script>
+        const scaleFactor = 0.7;
+        const width = 600 * scaleFactor;
+        const height = 600 * scaleFactor;
+        const radius = Math.min(width, height) / 2;
+
+        const svg = d3.select("svg")
+                      .attr("width", width)
+                      .attr("height", height);
+
+        const g = svg.append("g")
+                     .attr("transform", `translate(${width / 2 + 10},${height / 2 + 10})`);
+
+        const title = svg.append("text")
+                         .attr("class", "title")
+                         .attr("x", width - 10) // Right-aligned
+                         .attr("y", 20) // Top position
+                         .style("text-anchor", "end") // Align text to the right
+                         .text("Distribució actual");
+
+        const tooltip = d3.select("#tooltip");
+        let nodePositions = {};
+        let initialRootSizeGraph1 = null;
+        let currentData = null;
+        let transitionStage = 0;
+        const transitionDuration = 1000;
+        let paused = false;  // Control flag for pause/resume
+		let transitionTimeouts = [];
+
+		function updateTable(data) {
+			const titleText = d3.select(".title").text(); 
+			d3.select("#table-title").text(titleText); 
+			const tableBody = d3.select("#node-table tbody");
+			const nodes = d3.hierarchy(data)
+							.descendants()
+							.filter(d => d.depth > 0); 
+							
+			const rows = tableBody.selectAll("tr").data(nodes, d => d.data.name);
+			const rowsEnter = rows.enter()
+                          .append("tr");
+
+				rowsEnter.append("td").text(d => d.data.name);
+				rowsEnter.append("td").text(d => d.data.name2);
+				rowsEnter.append("td").text(d => d.data.size || 0);
+				rowsEnter.append("td").text(d => d.data.comorb != null ? d.data.comorb.toFixed(2) : "N/A");
+				rowsEnter.append("td").text(d => d.data.carrega != null ? d.data.carrega.toFixed(2) : "N/A");
+				
+				// Update: Update existing rows
+				rows.select("td:nth-child(3)").text(d => d.data.size || 0);
+				rows.select("td:nth-child(4)").text(d => d.data.comorb != null ? d.data.comorb.toFixed(2) : "N/A");
+				rows.select("td:nth-child(5)").text(d => d.data.carrega != null ? d.data.carrega.toFixed(2) : "N/A");
+
+				// Exit: Remove rows for outdated data
+				rows.exit().remove();
+			}
+
+
+        function createCirclePack(data, titleText) {
+            const root = d3.hierarchy(data)
+                           .sum(d => d.size || 0.01)
+                           .sort((a, b) => b.size - a.size);
+
+            const pack = d3.pack()
+                           .size([2 * radius, 2 * radius])
+                           .padding(3);
+
+            const nodes = pack(root).descendants();
+
+            const sizeThreshold = 0.001 * root.value;
+            const filteredNodes = nodes.filter(d => d.value >= sizeThreshold);
+
+			const carregaMin = 0.3;
+			const carregaMax = 5;
+
+			const colorScale = d3.scaleLinear()
+				.domain([carregaMin, 0.8, 1, 1.2, carregaMax])  // Create custom domain to split ranges
+				.range(["#1f77b4", "#00bfff", "#ffff00", "#ff7f00", "#800000"]);  // Blue to Yellow to Orange/Red
+
+
+            if (!initialRootSizeGraph1) {
+                initialRootSizeGraph1 = root.value;
+            }
+
+            nodes.forEach(d => {
+                if (!nodePositions[d.data.name]) {
+                    nodePositions[d.data.name] = { x: d.x, y: d.y };
+                } else {
+                    d.x = nodePositions[d.data.name].x;
+                    d.y = nodePositions[d.data.name].y;
+                }
+		        if (d.data.carrega == null) {
+					d.data.carrega = 0; // Default value for nodes with no carrega
+				}
+            });
+
+            const node = g.selectAll(".node")
+                          .data(filteredNodes, d => d.data.name);
+
+            const nodeEnter = node.enter().append("g")
+                                   .attr("class", "node")
+                                   .attr("transform", d => `translate(${d.x - radius},${d.y - radius})`);
+
+            nodeEnter.append("circle")
+                     .attr("r", d => Math.max(d.r, 0.1))
+                     .style("fill", d => d.data.carrega != null ? colorScale(d.data.carrega) : "#ccc")
+                     .style("opacity", d => (d.r >= 0.15 ? 1 : 0));
+
+            nodeEnter.append("text")
+                     .attr("class", "label")
+                     .attr("dy", ".3em")
+                     .text(d => d.data.name)
+                     .style("opacity", d => (d.r >= 0.15 ? 1 : 0)); // Initial opacity based on radius
+//					 .style("visibility", d => d.depth > 1 ? "visible" : "hidden") // Hide first-level labels
+					
+            nodeEnter.on("mouseover", function(event, d) {
+                tooltip.transition()
+                       .duration(200)
+                       .style("opacity", .9);
+                tooltip.html(`Codi: ${d.data.name}<br> Grup: ${d.data.name2}<br> Casos: ${d.data.size}<br> Càrrega: ${d.data.carrega}<br> Comorbiditat: ${d.data.comorb}`)
+                       .style("left", (event.clientX + 5) + "px")
+                       .style("top", (event.clientY - 28) + "px");
+            }).on("mouseout", function() {
+                tooltip.transition()
+                       .duration(500)
+                       .style("opacity", 0);
+            });
+
+            title.text(titleText);
+			
+			// Update the table with the initial data
+			updateTable(data);
+        }
+
+        function updateCirclePack(data, titleText) {
+            if (paused) return; // If paused, skip the update
+
+            const root = d3.hierarchy(data)
+                           .sum(d => d.size || 0.01)
+                           .sort((a, b) => b.size - a.size);
+
+            const pack = d3.pack()
+                           .size([2 * radius, 2 * radius])
+                           .padding(3);
+
+            const nodes = pack(root).descendants();
+
+            const sizeThreshold = 0.001 * root.value;
+            const filteredNodes = nodes.filter(d => d.value >= sizeThreshold);
+
+            const carregaMin = 0.3;
+            const carregaMax = 5;
+				
+			const colorScale = d3.scaleLinear()
+				.domain([carregaMin, 0.8, 1, 1.2, carregaMax])  // Create custom domain to split ranges
+				.range(["#1f77b4", "#00bfff", "#ffff00", "#ff7f00", "#800000"]);  // Blue to Yellow to Orange/Red
+	
+            const scalingFactor = Math.sqrt(root.value / initialRootSizeGraph1);
+
+            nodes.forEach(d => {
+                if (nodePositions[d.data.name]) {
+                    d.x = nodePositions[d.data.name].x;
+                    d.y = nodePositions[d.data.name].y;
+                }
+                d.r *= scalingFactor;
+            });
+
+            const node = g.selectAll(".node")
+                          .data(filteredNodes, d => d.data.name);
+
+            const nodeEnter = node.enter().append("g")
+                                   .attr("class", "node")
+                                   .attr("transform", d => `translate(${d.x - radius},${d.y - radius})`);
+
+            nodeEnter.append("circle")
+                     .attr("r", 0)
+                     .style("fill", d => d.data.carrega != null ? colorScale(d.data.carrega) : "#ccc")
+					 .style("opacity", 0)
+                     .transition()
+                     .duration(transitionDuration)
+                     .attr("r", d => Math.max(d.r, 0.1))
+                     //.style("opacity", d => (d.r >= 0.15 ? 1 : 0))
+					 .style("fill", d => d.data.carrega != null ? colorScale(d.data.carrega) : "#ccc") // Update color during transition
+ 					 .on("end", function(d) { // Ensure the color updates after transition
+					 	d3.select(this).style("fill", d => d.data.carrega != null ? colorScale(d.data.carrega) : "#ccc");
+					 });
+					 
+            nodeEnter.append("text")
+                     .attr("class", "label")
+                     .attr("dy", ".3em")
+                     .style("opacity", 0)
+                     .text(d => d.data.name)
+                     .transition()
+                     .duration(transitionDuration)
+                     .style("opacity", d => (d.r >= 0.15 ? 1 : 0))
+// 					 .style("visibility", d => d.depth > 1 ? "visible" : "hidden") // Hide first-level labels
+
+            node.transition()
+                .duration(transitionDuration)
+                .attr("transform", d => `translate(${d.x - radius},${d.y - radius})`);
+
+            node.select("circle")
+                .transition()
+                .duration(transitionDuration)
+                .attr("r", d => Math.max(d.r, 0.1))
+				.style("fill", d => d.data.carrega != null ? colorScale(d.data.carrega) : "#ccc") // Ensure color updates
+                .style("opacity", d => (d.r >= 0.15 ? 1 : 0));
+
+            node.select(".label")
+                .text(d => d.data.name)
+                .transition()
+                .duration(transitionDuration)
+                .style("opacity", d => (d.r >= 0.15 ? 1 : 0));
+
+			// Reapply tooltips during updates
+			node.on("mouseover", function(event, d) {
+				tooltip.transition()
+					   .duration(200)
+					   .style("opacity", .9);
+                tooltip.html(`Codi: ${d.data.name}<br> Grup: ${d.data.name2}<br> Casos: ${d.data.size}<br> Càrrega: ${d.data.carrega}<br> Comorbiditat: ${d.data.comorb}`)
+					   .style("left", (event.clientX + 5) + "px")
+					   .style("top", (event.clientY - 28) + "px");
+			}).on("mouseout", function() {
+				tooltip.transition()
+					   .duration(500)
+					   .style("opacity", 0);
+			});
+
+
+            node.exit().transition()
+                .duration(transitionDuration)
+                .attr("r", 0)
+                .style("opacity", 0)
+                .remove();
+
+            title.text(titleText);
+			updateTable(data);
+        }
+
+        d3.json("diagOc18.json").then(function(data18) {
+            currentData = data18;
+            createCirclePack(data18, "Dia actual");
+        }).catch(function(error) {
+            console.error("Error loading data:", error);
+        });
+
+        function togglePauseResume() {
+            paused = !paused;
+            document.getElementById("pauseButton").textContent = paused ? "Reinici" : "Pausa";
+            if (paused) {
+				// Clear any active transitions if paused
+				transitionTimeouts.forEach(timeout => clearTimeout(timeout));
+				transitionTimeouts = [];
+			} else {
+				startTransition();
+			}	
+		}
+		
+        document.getElementById("pauseButton").addEventListener("click", togglePauseResume);
+
+		function startTransition() {
+			if (paused) return; // Prevent transitions if paused
+
+			// Define the transition sequence
+			const transitions = [
+				{ file: "diagOc1.json", label: "Fa 17 setmanes" },
+				{ file: "diagOc2.json", label: "Fa 16 setmanes" },
+				{ file: "diagOc3.json", label: "Fa 15 setmanes" },
+				{ file: "diagOc4.json", label: "Fa 14 setmanes" },
+				{ file: "diagOc5.json", label: "Fa 13 setmanes" },
+				{ file: "diagOc6.json", label: "Fa 12 setmanes" },
+				{ file: "diagOc7.json", label: "Fa 11 setmanes" },
+				{ file: "diagOc8.json", label: "Fa 10 setmanes" },
+				{ file: "diagOc9.json", label: "Fa 9 setmanes" },
+				{ file: "diagOc10.json", label: "Fa 8 setmanes" },
+				{ file: "diagOc11.json", label: "Fa 7 setmanes" },
+				{ file: "diagOc12.json", label: "Fa 6 setmanes" },
+				{ file: "diagOc13.json", label: "Fa 5 setmanes" },
+				{ file: "diagOc14.json", label: "Fa 4 setmanes" },
+				{ file: "diagOc15.json", label: "Fa 3 setmanes" },
+				{ file: "diagOc16.json", label: "Fa 2 setmanes" },
+				{ file: "diagOc17.json", label: "Fa 1 setmana" },
+				{ file: "diagOc18.json", label: "Dia actual" },
+			];
+
+			// If the transition stage exceeds the last index, stop the transitions
+			if (transitionStage >= transitions.length) {
+				console.log("All transitions completed.");
+				document.getElementById("transitionButton").style.display = "inline-block"; // Re-enable button
+				transitionStage = 0;
+				return; // End the sequence
+			}
+
+			// Load the next dataset in the sequence
+			const currentTransition = transitions[transitionStage];
+			
+		    d3.json(currentTransition.file).then(function(data) {
+				currentData = data;
+				updateCirclePack(data, currentTransition.label);
+
+				transitionStage++;
+
+				// Schedule the next transition if not paused
+				if (transitionStage < transitions.length) {
+					const timeout = setTimeout(() => {
+						startTransition(); // Start the next transition
+					}, transitionDuration);
+
+					// Track this timeout for proper pausing
+					transitionTimeouts.push(timeout);
+				} else {
+					console.log("Transition sequence completed.");
+					const button = document.getElementById("transitionButton");
+					button.style.display = "inline-block"; // Re-enable button
+					button.classList.remove("hidden");
+					transitionStage = 0;
+				}	
+			}).catch(function(error) {
+				console.error("Error loading data:", error);
+			});
+		}
+
+		// Event listener for transition button
+		document.getElementById("transitionButton").addEventListener("click", function() {
+			if (paused) return; // Don't start transition if paused
+			const button = document.getElementById("transitionButton");
+			button.classList.add("hidden");
+
+			// Start the transition process
+			startTransition();
+		});
+		
+		document.getElementById("saveButton").addEventListener("click", async () => {
+			const svgElement = document.querySelector("svg");
+			const tableElement = document.querySelector("table");
+
+			// Set up a canvas
+			const canvas = document.createElement("canvas");
+			const ctx = canvas.getContext("2d");
+
+			// Get dimensions of SVG and table
+			const svgWidth = svgElement.clientWidth * 2; // Scale for high resolution
+			const svgHeight = svgElement.clientHeight * 2;
+			const tableWidth = tableElement.offsetWidth * 2;
+			const tableHeight = tableElement.offsetHeight * 2;
+
+			// Canvas dimensions to fit both side by side
+			const canvasWidth = svgWidth + tableWidth + 20; // Add spacing between graph and table
+			const canvasHeight = Math.max(svgHeight, tableHeight);
+
+			canvas.width = canvasWidth;
+			canvas.height = canvasHeight;
+
+			// Fill the canvas with a white background
+			ctx.fillStyle = "white";
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+			// Step 1: Render SVG to Canvas
+			const svgData = new XMLSerializer().serializeToString(svgElement);
+			const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+			const svgUrl = URL.createObjectURL(svgBlob);
+
+			const svgImg = new Image();
+			await new Promise((resolve) => {
+				svgImg.onload = () => {
+					ctx.drawImage(svgImg, 0, 0, svgWidth, svgHeight); // Draw SVG on the left
+					URL.revokeObjectURL(svgUrl);
+					resolve();
+				};
+				svgImg.src = svgUrl;
+			});
+
+			// Step 2: Render Table to Canvas
+			await html2canvas(tableElement, { scale: 2 }).then((tableCanvas) => {
+				ctx.drawImage(tableCanvas, svgWidth + 20, 0, tableWidth, tableHeight); // Draw table to the right of the SVG
+			});
+
+			// Step 3: Save Canvas as PNG
+			canvas.toBlob((blob) => {
+				const downloadLink = document.createElement("a");
+				downloadLink.href = URL.createObjectURL(blob);
+				downloadLink.download = "combined_graph_and_table.png";
+				downloadLink.click();
+			}, "image/png");
+		});
+
+    </script>
+</body>
+</html>
+
